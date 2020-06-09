@@ -1,36 +1,145 @@
 ---
-title: "Untitled"
+title: "COVID-19, Costa Rica"
+
 output: 
   flexdashboard::flex_dashboard:
-    orientation: columns
     vertical_layout: fill
+    orientation: column
 ---
 
-```{r setup, include=FALSE}
+```{r}
+library(ggplot2)
+library(knitr)
 library(flexdashboard)
+library(sf)
+library(leaflet)
+library(kableExtra)
+library(dplyr)
+library(tidyr)
 ```
-
-Column {data-width=650}
------------------------------------------------------------------------
-
-### Chart A
 
 ```{r}
+#Entrada de datos
+canton_positivos_covid19 = st_read ("https://raw.githubusercontent.com/geoprocesamiento-2020i/datos/master/covid19/casos/cr/cr-covid19-cantones.geojson")
 
+provincia_positivo_covid19 <- canton_positivos_covid19  %>% group_by(provincia) %>%
+summarize(confirmados_prov = sum(confirmados, na.rm = TRUE), recuperados_prov = sum(recuperados, na.rm = TRUE), activos_prov = sum(activos, na.rm = TRUE), muertes_prov = sum(muertes, na.rm = TRUE),  area_prov = sum(area, na.rm = TRUE))
+
+
+
+#Colores para los mapas
+Color1 <- colorQuantile("blues", canton_positivos_covid19 $confirmados, n = 7)
+
+
+Color2 <- colorQuantile("reds", provincia_positivo_covid19 $confirmados, n = 7)
 ```
 
-Column {data-width=350}
------------------------------------------------------------------------
 
-### Chart B
 
+Mapa cantones
+===================================== 
+Column {data-width=600}
+-------------------------------------
+
+### Mapa cantón
+  
 ```{r}
-
+mapa_canton <- leaflet(canton_positivos_covid19 ) %>%
+  addTiles() %>%
+  addPolygons(fillColor = ~Color1(confirmados), stroke=F, fillOpacity = 1,
+              popup = paste("Cantón: ", canton_positivos_covid19$canton, "<br>",
+                            "Confirmados: ", canton_positivos_covid19$confirmados, "<br>",
+                            "Activos: ", canton_positivos_covid19$activos, "<br>",
+                            "Recuperados: ", canton_positivos_covid19$recuperados,"<br>",
+                            "Fallecidos: ", canton_positivos_covid19$muertes, "<br>"))
+mapa_canton
 ```
 
-### Chart C
+Mapa provincias
+===================================== 
 
+Column {data-width=600}
+-------------------------------------
+
+### Mapa provincia
+
+
+
+
+
+Gráfico provincia
+===================================== 
+
+Column {data-width=1000}
+-------------------------------------
+### Gráfico  por provincia
 ```{r}
+grafico <- canton_positivos_covid19 %>% group_by(provincia) %>%
+  summarize(confirmados=sum(confirmados,na.rm=TRUE))
+grafico.ordenado <- order(grafico$confirmados, decreasing=TRUE)
 
+grafico1 <- grafico[grafico.ordenado,]
+grafico_provincia <- ggplot(grafico1, aes(x=reorder(provincia, -confirmados), y=confirmados)) + 
+  ggtitle("Casos confirmados por provincia") + 
+  xlab("Provincias") + ylab("Casos confirmados") +
+  geom_bar(stat = "identity", color= "grey") +
+  geom_text(aes(label=confirmados), vjust=-0.4, size=4)
+grafico_provincia
 ```
 
+Tabla por cantón
+===================================== 
+
+Column {data-width=1000}
+-------------------------------------
+
+### Tabla
+```{r}
+tabla_canton <- canton_positivos_covid19 %>%
+  select(canton, confirmados, muertes, recuperados) %>%
+  arrange(canton) %>%
+  st_drop_geometry() %>%
+  kable(col.names=c("Cantón","Confirmados","Fallecidos","Recuperados"))%>%
+  kable_styling() %>%
+  scroll_box( width = "1400px", height = "1400px", fixed_thead = TRUE)
+tabla_canton
+```
+
+Cuadros
+===================================== 
+
+
+Column {data-width=1000}
+-------------------------------------
+
+### Casos confirmados
+```{r}
+ canton_positivos_covid19[is.na(canton_positivos_covid19)] = 0
+  suma <- sum(canton_positivos_covid19$confirmados)           
+  valueBox(suma, color = "yellows") 
+```
+
+### Casos activos
+```{r}
+ canton_positivos_covid19[is.na(canton_positivos_covid19)] = 0
+  suma <- sum(canton_positivos_covid19$activos)           
+  valueBox(suma, color = "blues") 
+```
+
+
+Column {data-width=1000}
+-------------------------------------
+
+### Casos recuperados
+```{r}
+ canton_positivos_covid19[is.na(canton_positivos_covid19)] = 0
+  suma <- sum(canton_positivos_covid19$recuperados)           
+  valueBox(suma, color = "greens") 
+```
+
+### Casos fallecidos
+```{r}
+ canton_positivos_covid19[is.na(canton_positivos_covid19)] = 0
+  suma <- sum(canton_positivos_covid19$muertes)           
+  valueBox(suma, color = "reds")
+```
